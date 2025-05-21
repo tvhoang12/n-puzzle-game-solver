@@ -127,50 +127,29 @@ class NPuzzleGUI:
         self.status_label.config(foreground=color)
         self.status_label_var.set(message)
 
-    def _validate_and_handle_entry(self, var_name, index, mode, r, c):
-        entry_widget = self.entry_widgets[r][c]
-        current_value_str = entry_widget.get()
-        old_valid_num_in_cell = getattr(entry_widget, 'last_valid_value', None)
+    def _check_data_in_board(self, board):
+        """
+        Kiểm tra bảng đầu vào:
+        - Nếu có ô trùng lặp, trả về ('duplicate', [(r1, c1), (r2, c2)], value)
+        - Nếu có ô ngoài khoảng, trả về ('out_of_range', (r, c), value)
+        - Nếu hợp lệ, trả về None
+        """
+        n = len(board)
+        seen = {}
+        max_val = n * n - 1
 
-        if not current_value_str: # Cell cleared
-            if old_valid_num_in_cell is not None:
-                pass # No need to remove from a global set if we re-validate on submit
-            setattr(entry_widget, 'last_valid_value', None)
-            self._update_remaining_numbers_display()
-            self._clear_status()
-            return True
-
-        if not current_value_str.isdigit():
-            self._set_status(f"Cell ({r+1},{c+1}): Must be a number.", "red")
-            if old_valid_num_in_cell is not None: entry_widget.insert(0, str(old_valid_num_in_cell)); entry_widget.delete(len(str(old_valid_num_in_cell)), tk.END)
-            else: entry_widget.delete(0, tk.END)
-            return False
-
-        num = int(current_value_str)
-        max_val = self.current_n * self.current_n -1
-
-        if not (0 <= num <= max_val):
-            self._set_status(f"Cell ({r+1},{c+1}): Number {num} out of range [0, {max_val}].", "red")
-            if old_valid_num_in_cell is not None: entry_widget.insert(0, str(old_valid_num_in_cell)); entry_widget.delete(len(str(old_valid_num_in_cell)), tk.END)
-            else: entry_widget.delete(0, tk.END)
-            return False
-
-        # Check uniqueness against other cells' last_valid_value
-        for r_idx in range(self.current_n):
-            for c_idx in range(self.current_n):
-                if r_idx == r and c_idx == c:
-                    continue
-                other_cell_val = getattr(self.entry_widgets[r_idx][c_idx], 'last_valid_value', None)
-                if other_cell_val == num:
-                    self._set_status(f"Cell ({r+1},{c+1}): Number {num} already in cell ({r_idx+1},{c_idx+1}).", "red")
-                    if old_valid_num_in_cell is not None: entry_widget.insert(0, str(old_valid_num_in_cell)); entry_widget.delete(len(str(old_valid_num_in_cell)), tk.END)
-                    else: entry_widget.delete(0, tk.END)
-                    return False
-        
-        setattr(entry_widget, 'last_valid_value', num)
-        self._update_remaining_numbers_display()
-        self._clear_status()
-        return True
+        # Kiểm tra trùng lặp và ngoài khoảng
+        for r in range(n):
+            for c in range(n):
+                val = board[r][c]
+                # Kiểm tra ngoài khoảng
+                if not (0 <= val <= max_val):
+                    return ('out_of_range', (r, c), val)
+                # Kiểm tra trùng lặp
+                if val in seen:
+                    return ('duplicate', [seen[val], (r, c)], val)
+                seen[val] = (r, c)
+        return None
 
     def create_grid(self):
         for widget in self.matrix_frame.winfo_children():
@@ -333,6 +312,27 @@ class NPuzzleGUI:
                 self.result_text_area.insert(tk.END, f"IDA* iterations: {iterations_ida}\n")
             self.result_text_area.insert(tk.END, f"Time taken: {elapsed_time:.4f} seconds\n")
             self.result_text_area.config(state=tk.DISABLED)
+
+    def _validate_and_handle_entry(self, var_name, index, mode, r, c):
+        # Chỉ kiểm tra là số hoặc rỗng, không kiểm tra trùng lặp, không kiểm tra ngoài khoảng
+        entry_widget = self.entry_widgets[r][c]
+        current_value_str = entry_widget.get()
+        if not current_value_str:  # Cell cleared
+            setattr(entry_widget, 'last_valid_value', None)
+            self._update_remaining_numbers_display()
+            self._clear_status()
+            return True
+
+        if not current_value_str.isdigit():
+            self._set_status(f"Cell ({r+1},{c+1}): Must be a number.", "red")
+            entry_widget.delete(0, tk.END)
+            return False
+
+        num = int(current_value_str)
+        setattr(entry_widget, 'last_valid_value', num)
+        self._update_remaining_numbers_display()
+        self._clear_status()
+        return True
 
 if __name__ == '__main__':
     root = tk.Tk()

@@ -34,7 +34,7 @@ class Node:
 
 # --- Hàm tiện ích ---
 def get_goal_state(n):
-    goal_list = list(range(n * n))
+    goal_list = list(range(1, n * n)) + [0]
     goal_np = np.array(goal_list).reshape((n, n))
     return goal_np
 
@@ -46,7 +46,8 @@ def get_possible_moves(board):
     moves = []
     r, c = find_blank(board)
     n = board.shape[0]
-    directions = [(-1, 0, "UP"), (1, 0, "DOWN"), (0, -1, "LEFT"), (0, 1, "RIGHT")]
+    # Dùng ký tự mũi tên Unicode
+    directions = [(-1, 0, "↑"), (1, 0, "↓"), (0, -1, "←"), (0, 1, "→")]
     for dr, dc, action_name in directions:
         nr, nc = r + dr, c + dc
         if 0 <= nr < n and 0 <= nc < n:
@@ -62,6 +63,7 @@ def reconstruct_path(node):
         path.append(current.action)
         current = current.parent
     return path[::-1]
+
 
 # --- Heuristics cho A* và IDA* ---
 def manhattan_distance(board, goal_state):
@@ -129,14 +131,15 @@ def dfs(initial_board_np, goal_state_np):
 
 
 def a_star(initial_board_np, goal_state_np, heuristic_func=manhattan_distance):
+    # khởi tạo
     start_time = time.time()
     initial_node = Node(initial_board_np, g_cost=0)
     initial_node.h_cost = heuristic_func(initial_node.board, goal_state_np)
     initial_node.f_cost = initial_node.g_cost + initial_node.h_cost
-
+    #kiểm tra trạng thái đích
     if np.array_equal(initial_node.board, goal_state_np):
         return [], 0, time.time() - start_time
-
+    # khởi tạo open_set và closed_set
     open_set = [initial_node]
     # Sử dụng g_costs_map để lưu trữ g_cost nhỏ nhất tới một board_tuple
     # và dùng nó để kiểm tra visited thay cho closed_set dạng set(node)
@@ -145,7 +148,7 @@ def a_star(initial_board_np, goal_state_np, heuristic_func=manhattan_distance):
     # nên chiến lược thường là push node mới và bỏ qua node cũ khi pop)
     g_costs_map = {initial_node.get_board_tuple(): 0}
     nodes_expanded = 0
-
+    # vòng lặp chính
     while open_set:
         current_node = heapq.heappop(open_set)
         nodes_expanded += 1
@@ -157,7 +160,7 @@ def a_star(initial_board_np, goal_state_np, heuristic_func=manhattan_distance):
         if np.array_equal(current_node.board, goal_state_np):
             path = reconstruct_path(current_node)
             return path, nodes_expanded, time.time() - start_time
-
+        # sinh các trạng thái con
         for next_board, action in get_possible_moves(current_node.board):
             next_g_cost = current_node.g_cost + 1
             next_board_tuple = tuple(map(tuple, next_board.tolist()))
